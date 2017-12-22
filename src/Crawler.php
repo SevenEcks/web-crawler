@@ -6,7 +6,7 @@ use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\RequestException;
 use SevenEcks\StringUtils\StringUtils;
 use SevenEcks\Ansi\Colorize;
-
+use SevenEcks\Web\Site;
 /**
  *
  * @author Brendan Butts <bbutts@stormcode.net>
@@ -25,28 +25,46 @@ class Crawler
     {
         $this->guzzle = new \GuzzleHttp\Client;
         $this->su = new StringUtils;
+        $this->siteFactory = new SiteFactory;
     }
 
     public function start(string $url)
     {
-        $this->starting_url = $url;
-        $this->enqueueUrl($url);
+        $starting_url = $this->siteFactory->newSite($url);
+        $this->starting_url = $starting_url;
+        $this->enqueueUrl($starting_url);
         $this->crawl();
+    }
+
+    public function tellCrawlUrl(string $url)
+    {
+        $this->su->tell('[' . Colorize::blue('CRAWLING') . '] ' . $url);
+    }
+
+    public function tellDiscoveredUrl(string $url)
+    {
+        $this->su->tell('[' . Colorize::green('DISCOVERED') . '] ' . $url);
     }
 
     public function crawl()
     {
         if (!($url = $this->dequeueUrl())) {
-            $this->su->tell('Finished Crawling.');
+            $this->su->alert('Finished Crawling.');
             print_r($this->bad_urls);
+            foreach ($this->bad_urls as $url => $sites) {
+                foreach ($sites as $site) {
+                    echo $url . "\n";
+                    echo $site->getUrl() . "\n";
+                }
+            }
             return;
         } 
         // keep track of the urls
         $this->previous_url = $this->current_url;
         $this->current_url = $url;
-        $this->su->tell('Crawling URL: ' . $url); 
+        $this->su->alert('Crawling URL: ' . $url); 
         try {
-            $response = $this->guzzle->get($url); 
+            $response = $this->guzzle->get($url->getUrl()); 
         } catch (ClientException $e) {
             $response = $e->getResponse();
         } catch (RequestException $e) {
@@ -76,16 +94,18 @@ class Crawler
         $this->crawl();
     }
 
-    private function addBadUrl($url, $status_code)
+    private function addBadUrl(Site $url, $status_code)
     {
-        $this->su->tell($this->su->tostr(Colorize::red("Bad URL ["), Colorize::yellow($status_code), Colorize::red("]"), " => ", $url));
+        //$this->su->tell($this->su->tostr(Colorize::red("Bad URL ["), Colorize::yellow($status_code), Colorize::red("]"), " => ", $url));
+        $this->su->critical('Bad URL [' . Colorize::yellow($status_code) .'] => ' . $url);
         // add this URL to the array of bad urls and track the current url it was found on
         $temp_array = [];
-        if (isset($this->bad_urls[$url])) {
-            $temp_array = $this->bad_urls[$url];
+        if (isset($this->bad_urls[$url->getUrl()])) {
+            $temp_array = $this->bad_urls[$url->getUrl()];
         }
+        // TODO: confirm this is supposed to be previous url?
         $temp_array[] = $this->previous_url;
-        $this->bad_urls[$url] = $temp_array;
+        $this->bad_urls[$url->getUrl()] = $temp_array;
     }
 
     private function isContentTypeHtml($content_type)
@@ -93,22 +113,16 @@ class Crawler
         return strpos($content_type, "text/html");
     }
 
-    private function sameDomain($url_one, $url_two)
-    {
-        // since we are getting links from the page, it's possible
-        // that someone put www.example.com instead of http://
-        // which will mess up parse_url
-        if (strpos($url_two, '//') === false) {
-            $url_two = '//' . $url_two;
-        }
 
-        $host_one = parse_url($url_one, PHP_URL_HOST);
-        $host_two = parse_url($url_two, PHP_URL_HOST);
+    private function sameDomain(Site $url_one, Site $url_two)
+    {
+        $host_one = parse_url($url_one->getUrl(), PHP_URL_HOST);
+        $host_two = parse_url($url_two->getUrl(), PHP_URL_HOST);
         //echo 'Same domain check: ' . $url_one .  ' - ' . $url_two . ' ' . $host_one . ' ' . $host_two;
         return $host_one === $host_two;
     }
 
-    private function addVisited($url)
+    private function addVisited(Site $url)
     {
         array_push($this->visited_urls, $url);
     }
@@ -117,10 +131,11 @@ class Crawler
     {
         preg_match_all('#\bhttps?://[^,\s()<>]+(?:\([\w\d]+\)|([^,[:punct:]\s]|/))#', $body, $matches);
         foreach ($matches[0] as $match) {
-            if (!$this->enqueueUrl($match)) {
+            $url = $this->siteFactory->newSite($match, $this->current_url);
+            if (!$this->enqueueUrl($url)) {
                 continue;
             }
-            $this->su->tell($this->su->tostr(Colorize::cyan("Discovered URL: "), Colorize::yellow($match)));
+            $this->tellDiscoveredUrl($url);
         }
     }
 
@@ -141,7 +156,7 @@ class Crawler
             $link = $link->getAttribute('href');
             // some links are special like mailto and tel
             if ($this->isSpecialLink($link)) {
-                $this->su->tell(Colorize::brown('Ignoring special link: ' . $link));
+                $this->su->warning('Ignoring special link: ' . $link);
                 continue;
             }
             $url_pieces = parse_url($link);
@@ -150,10 +165,11 @@ class Crawler
                 $temp_starting_url = parse_url($this->starting_url);
                 $link = $temp_starting_url['host'] . $url_pieces['path'];
             }
-            if (!$this->enqueueUrl($link)) {
+            $url = $this->siteFactory->newSite($link, $this->current_url);
+            if (!$this->enqueueUrl($url)) {
                 continue;
             }
-            $this->su->tell($this->su->tostr(Colorize::cyan("Discovered URL: "), Colorize::yellow($link)));
+            $this->tellDiscoveredUrl($url);
         }
     }
 
@@ -172,13 +188,18 @@ class Crawler
         return array_shift($this->pending_urls);
     }
 
-    private function enqueueUrl($url)
+    private function enqueueUrl(Site $url)
     {
         // check that we haven't already visited or enqueued this link
-        if (in_array($url, $this->visited_urls)) {
-            return;
-        } elseif (in_array($url, $this->pending_urls)) {
-            return;
+        foreach ($this->visited_urls as $visited_url) {
+            if ($visited_url->getUrl() == $url->getUrl()) {
+                return;
+            }
+        }
+        foreach ($this->pending_urls as $pending_url) {
+            if ($pending_url->getUrl() == $url->getUrl()) {
+                return;
+            }
         }
         return array_push($this->pending_urls, $url);
     } 

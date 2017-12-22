@@ -1,11 +1,13 @@
 <?php
 require_once __DIR__ . '/vendor/autoload.php';
 require('src/Crawler.php');
+require('src/Site.php');
+require('src/SiteFactory.php');
 
 use SevenEcks\StringUtils\StringUtils;
 use SevenEcks\Ansi\Colorize;
 use SevenEcks\Web\Crawler;
-
+use SevenEcks\Web\SiteFactory;
 // load env vars
 $dotenv = new Dotenv\Dotenv(__DIR__);
 $dotenv->load();
