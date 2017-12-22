@@ -7,6 +7,7 @@ use GuzzleHttp\Exception\RequestException;
 use SevenEcks\StringUtils\StringUtils;
 use SevenEcks\Ansi\Colorize;
 use SevenEcks\Web\Site;
+
 /**
  *
  * @author Brendan Butts <bbutts@stormcode.net>
@@ -20,6 +21,7 @@ class Crawler
     private $starting_url = '';
     private $current_url = '';
     private $previous_url = '';
+    private $crawl_external = true;
 
     public function __construct()
     {
@@ -28,8 +30,14 @@ class Crawler
         $this->siteFactory = new SiteFactory;
     }
 
+    public function setCrawlExternal(bool $new_value)
+    {
+        $this->crawl_external = $new_value;
+    }
+
     public function start(string $url)
     {
+        //$this->setCrawlExternal(false);
         $starting_url = $this->siteFactory->newSite($url);
         $this->starting_url = $starting_url;
         $this->enqueueUrl($starting_url);
@@ -50,15 +58,21 @@ class Crawler
     {
         if (!($url = $this->dequeueUrl())) {
             $this->su->alert('Finished Crawling.');
-            print_r($this->bad_urls);
+            echo 'count: ' . count($this->bad_urls) . "\n";
+            //print_r($this->bad_urls);
             foreach ($this->bad_urls as $url => $sites) {
                 foreach ($sites as $site) {
                     echo $url . "\n";
                     echo $site->getUrl() . "\n";
                 }
             }
+            $this->displayAllUrls();
             return;
         } 
+        // check if we should crawl external URLs
+        if (!$this->crawl_external && !$this->sameDomain($url, $this->starting_url)) {
+            return $this->crawl();
+        }
         // keep track of the urls
         $this->previous_url = $this->current_url;
         $this->current_url = $url;
@@ -94,6 +108,27 @@ class Crawler
         $this->crawl();
     }
 
+    public function displayAllUrls()
+    {
+        $site_urls = [];
+        foreach ($this->siteFactory->getSites() as $site) {
+            if (isset($site_urls[$site->getUrl()])) {
+                $site_urls[$site->getUrl()] += 1;
+            } else {
+                $site_urls[$site->getUrl()] = 1;
+            }
+            $this->su->tell($site);
+            foreach ($site->getDetectedOn() as $detected) {
+                echo '--' . $detected->getUrl() . "\n";
+            }
+        }
+        foreach ($site_urls as $key => $value) {
+            if ($value > 1) {
+                echo $key . ' ' . $value . "\n";
+            }
+        } 
+    }
+
     private function addBadUrl(Site $url, $status_code)
     {
         //$this->su->tell($this->su->tostr(Colorize::red("Bad URL ["), Colorize::yellow($status_code), Colorize::red("]"), " => ", $url));
@@ -112,7 +147,6 @@ class Crawler
     {
         return strpos($content_type, "text/html");
     }
-
 
     private function sameDomain(Site $url_one, Site $url_two)
     {
