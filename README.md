@@ -1,15 +1,11 @@
 ## Installation
 
-Via Composer
-
-```bash
-composer require sevenecks/string-utils
-```
+TBD
 
 ## Usage
 ```php
+php crawl.php url
 ```
-![Example Output](https://github.com/SevenEcks/string-utils/blob/master/images/example.png "Example Output")
 
 ## Change Log
 Please see [Change Log](CHANGELOG.md) for more information.
