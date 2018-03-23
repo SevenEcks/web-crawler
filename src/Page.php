@@ -2,14 +2,14 @@
 namespace SevenEcks\Web;
 
 /**
- * This class instantiates into a site object where the url of 
+ * This class instantiates into a page object where the url of 
  * a specific page on a site and the pages linked from are stored
  *
  * @author Brendan Butts <bbutts@stormcode.net>
  */
-class Site
+class Page
 {
-    // url pieces for this site object
+    // url pieces for this page object
     private $scheme;
     private $host;
     private $port;
@@ -18,11 +18,14 @@ class Site
     private $path;
     private $query;
     private $fragment;
-    // array of $site objects that this site has been found on
-    private $detected_on = [];
+
+    // pages we have detected that this page is linked to on
+    private $linked_from = [];
+    // pages that this page links out to
+    private $links_to = [];
 
     /**
-     * Constructor for the site object. Handles initial 
+     * Constructor for the page object. Handles initial 
      * setup
      *
      * @param string $url
@@ -54,8 +57,9 @@ class Site
     }
 
     /**
-     * Get the privacy $url
+     * Get the partial path or full path of the $url
      *
+     * @param bool $full = true
      * @return string $url
      */
     public function getUrl(bool $full = true)
@@ -69,33 +73,52 @@ class Site
     }
 
     /**
-     * Setter for adding a detected_on $site 
-     * object to the private prop
+     * Add a page that this page links to to the 
+     * links_to array, if it isn't already there.
      *
-     * @param obj $url
-     * @return none
+     * @param Page $toPage
+     * @return void
      */
-    public function addDetectedOn(Site $url)
+    public function addLinksTo(Link $link)
     {
-        $test_url = $url->getUrl();
-        foreach ($this->detected_on as $site) {
-            if ($site->getUrl() == $test_url) {
-                // already exists
-                return;
-            }
-        } 
-        $this->detected_on[] = $url;
+        if (!in_array($link, $this->links_to)) {
+            $this->links_to[] = $link; 
+        }
     }
 
     /**
-     * Get the detected on array
+     * Getter for the links_to private property
      *
      * @return array
      */
-    public function getDetectedOn()
+    public function getLinksTo()
     {
-        return $this->detected_on;
-    } 
+        return $this->links_to;
+    }
+
+    /**
+     * Add a page that this page is linked from to to the 
+     * linked_from array, if it isn't already there.
+     *
+     * @param Link $link
+     * @return void
+     */
+    public function addLinkedFrom(Link $link)
+    {
+        if (!in_array($link, $this->linked_from)) {
+            $this->linked_from[] = $link; 
+        }
+    }
+
+    /**
+     * Getter for the links_from private property
+     *
+     * @return array
+     */
+    public function getLinkedFrom()
+    {
+        return $this->linked_from;
+    }
 
     /**
      * Allow this object to be converted to a string

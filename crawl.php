@@ -1,14 +1,17 @@
 <?php
 ini_set('memory_limit', '256M');
 require_once __DIR__ . '/vendor/autoload.php';
-require('src/Crawler.php');
-require('src/Site.php');
-require('src/SiteFactory.php');
 
+require('src/Crawler.php');
+require('src/Page.php');
+require('src/PageFactory.php');
+require('src/Link.php');
+require('src/LinkFactory.php');
 use SevenEcks\StringUtils\StringUtils;
 use SevenEcks\Ansi\Colorize;
 use SevenEcks\Web\Crawler;
-use SevenEcks\Web\SiteFactory;
+use SevenEcks\Web\PageFactory;
+
 // load env vars
 $dotenv = new Dotenv\Dotenv(__DIR__);
 $dotenv->load();
@@ -19,10 +22,17 @@ $su = new StringUtils;
 // Get the crawler
 $crawler = new Crawler;
 
-if (!$argv[1]) {
-    return $su->tell(Colorize::red('Usage:') . ' php ' . $argv[0] . ' http://example.com');
-}
-$url = $argv[1];
-$su->tell($su->tostr(Colorize::cyan('Beginning Crawl of URL: '), Colorize::yellow($url)));
+// Clear the log
+$crawler->logger->clearLog();
 
+// if we don't have args, give usage
+if (!$argv[1]) {
+    return $su->alert('Usage: php ' . $argv[0] . ' http://example.com');
+}
+// get the url
+$url = $argv[1];
+// let the user know we are starting
+$su->tell($su->tostr(Colorize::cyan('Beginning Crawl of URL: '), Colorize::yellow($url)));
+// start the crawler
+$crawler->setCrawlExternal(false);
 $crawler->start($url);

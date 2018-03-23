@@ -1,7 +1,7 @@
 {
-    "name": "sevenecks/package",
-    "description": "",
-    "keywords": [],
+    "name": "sevenecks/site-crawler",
+    "description": "A PHP site crawler that looks for errors and issues on sites",
+    "keywords": ["site crawler", "php", "error crawl", "color"],
     "homepage": "https://github.com/sevenecks",
     "type": "library",
     "license": "MIT",
@@ -11,19 +11,20 @@
             "email": "bbutts@stormcode.net"
         }
     ],
-    "minimum-stability": "stable",
+    "prefer-stable": true,
     "require-dev": {
     },
     "require": {
         "php": ">=7.0",
-        "sevenecks/ansi": "^1",
-        "sevenecks/string-utils": "^0.0.10",
+        "sevenecks/ansi": ">=1",
+        "sevenecks/string-utils": ">=0.0.10",
         "vlucas/phpdotenv": "^2.4",
-        "guzzlehttp/guzzle": "^6.3"
+        "guzzlehttp/guzzle": "^6.3",
+        "sevenecks/xlog": ">=0.0.2"
     },
     "autoload": {
         "psr-4": {
-            "SevenEcks\\StringUtils\\": "src/"
+            "SevenEcks\\SiteCrawler\\": "src/"
         }
     }
 }
