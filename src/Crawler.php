@@ -24,6 +24,7 @@ class Crawler
     private $current_url = '';
     private $previous_url = '';
     private $crawl_external = true;
+    private $logging = true;
 
     /**
      * Instantiate the dependencies
@@ -38,6 +39,27 @@ class Crawler
         $this->linkFactory = new LinkFactory;
         $this->logger = new Logger;
         $this->colorize = new Colorize;
+    }
+
+    /**
+     * Set logging on or off
+     *
+     * @param bool $toggle
+     * @return void
+     */
+    public function toggleLogging(bool $toggle)
+    {
+        $this->logging = $toggle;
+    }
+
+    /**
+     * Return the status of logging being enabled or disabled
+     *
+     * @return bool
+     */
+    public function isLoggingEnabled()
+    {
+        return $this->logging;
     }
 
     /**
@@ -94,6 +116,9 @@ class Crawler
      */
     private function logBadUrls()
     {
+        if (!$this->isLoggingEnabled()) {
+            return;
+        }
         $this->logger->warning($this->su->center('<Bad Urls>', null, '#'));
         foreach ($this->bad_urls as $url => $pages) {
             foreach ($pages as $page) {
@@ -163,6 +188,9 @@ class Crawler
      */
     public function logAllUrls()
     {
+        if (!$this->isLoggingEnabled()) {
+            return;
+        }
         $this->logger->alert($this->su->center('<All URLs>', null, '#'));
         $page_urls = [];
         foreach ($this->pageFactory->getPages() as $page) {
@@ -248,6 +276,19 @@ class Crawler
     }
 
     /**
+     * Log a special link
+     *
+     * @param string $link
+     * @return void
+     */
+    public function logSpecialLink(string $link)
+    {
+        if (!$this->isLoggingEnabled()) {
+            $this->logger->alert('Special Link: ' . $link);
+        }
+    }
+
+    /**
      * Find and enqueue all hrefs in a body using DOMDocument
      *
      * @param string $body
@@ -271,6 +312,7 @@ class Crawler
             // some links are special like mailto and tel
             if ($this->isSpecialLink($link)) {
                 $this->su->warning('Ignoring special link: ' . $link);
+                $this->logSpecialLink($link);
                 continue;
             }
             $url_pieces = parse_url($link);
